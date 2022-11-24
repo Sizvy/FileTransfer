@@ -1,0 +1,86 @@
+Client:
+while (count<=No_of_chunk+1){
+                                count++;
+                                dout.writeUTF("false");
+                                if(left<size){
+                                    read = iptStream.read(bytes);
+                                    System.out.println(count+" "+read+" "+left+" in if");
+                                    dout.write(bytes);
+                                    dout.writeUTF(String.valueOf(read));
+                                    dout.flush();
+                                }
+                                read = iptStream.read(bytes);
+                                dout.write(bytes);
+                                dout.writeUTF(String.valueOf(read));
+                                dout.flush();
+                                s = din.readUTF();
+                                left = Integer.parseInt(din.readUTF());
+                                System.out.println(count+" "+read+" "+left);
+                                if(s.contains("successfully")){
+                                    System.out.println(s);
+                                }
+                                else if(s.startsWith("Full")){
+                                    System.out.println(s);
+                                    success=1;
+                                    break;
+                                }
+                                else
+                                {
+                                    System.out.println("Error occured while uploading file");
+                                    break;
+                                }
+                            }
+
+Server:
+while (count<=No_of_chunk+1){
+                                timeoutmsg = din.readUTF();
+                                count++;
+                                if(timeoutmsg.equals("true")){
+                                    System.out.println("Time out!");
+                                    for(int k=0;k<Server.Files.size();k++){
+                                        if(Server.Files.get(k).getFileID().equals(this.getFileInfo().getFileID())){
+                                            String path = Server.Files.get(k).getToPath();
+                                            Server.Files.get(k).getFileOutputStream().close();
+                                            new File(path).delete();
+                                            System.out.println("Incomplete file deleted");
+                                            break;
+                                        }
+                                    }
+                                    break;
+                                }
+                                din.read(bytes,0,Math.min(left,Server.CHUNK_SIZE));
+                                len = Integer.parseInt(din.readUTF());
+                                System.out.println(count+" len: "+len+" left: "+left);
+                                if(len==Server.CHUNK_SIZE ){
+                                    dout.writeUTF((sent+len)+" bytes"+" CHUNK sent successfully Remaining size: "+(left-len)+" bytes");
+                                    dout.writeUTF(String.valueOf(left-len));
+                                    dout.flush();
+                                    otpStream.write(bytes,0,len);
+                                    otpStream.flush();
+                                    left -= len;
+                                    sent += len;
+                                }
+                                else if(len<Server.CHUNK_SIZE && len>0){
+                                    sent += len;
+                                    dout.writeUTF("Full file sent("+sent+" bytes)");
+                                    dout.writeUTF(String.valueOf(left-len));
+                                    otpStream.write(bytes,0,len);
+                                    otpStream.flush();
+                                    dout.flush();
+                                }
+                                else{
+                                    dout.writeUTF("Error Sending File");
+                                    dout.writeUTF("100000000");
+                                    dout.flush();
+                                    for(int k=0;k<Server.Files.size();k++){
+                                        if(Server.Files.get(k).getFileID().equals(this.getFileInfo().getFileID())){
+                                            String path = Server.Files.get(k).getToPath();
+                                            Server.Files.get(k).getFileOutputStream().close();
+                                            new File(path).delete();
+                                            System.out.println("Incomplete file deleted");
+                                            break;
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
